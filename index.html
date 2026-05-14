@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distancia a las Islas Malvinas</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <style>
+        /* DISPOSICIÓN Y LAYOUT CON ESTÉTICA ARGENTINA */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair; /* Cambia el cursor para invitar a hacer clic */
+        }
+
+        /* Panel flotante de búsqueda */
+        #overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            z-index: 1000;
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            width: 340px;
+            box-sizing: border-box;
+            border-top: 6px solid #74ACDF;
+        }
+
+        /* Nuevo recuadro superior derecho */
+        #leyenda-patriota {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            z-index: 1000;
+            background-color: #74ACDF;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 2px solid #ffffff;
+            letter-spacing: 0.5px;
+        }
+
+        /* Adaptación para celulares */
+        @media (max-width: 768px) {
+            #overlay {
+                width: calc(100vw - 40px);
+                top: 80px; 
+                left: 20px;
+                padding: 20px;
+            }
+            #leyenda-patriota {
+                top: 15px;
+                right: 50%;
+                transform: translateX(50%);
+                font-size: 0.85rem;
+                padding: 8px 15px;
+                white-space: nowrap;
+            }
+        }
+
+        h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.3rem;
+            color: #333;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #74ACDF;
+            box-shadow: 0 0 5px rgba(116, 172, 223, 0.3);
+        }
+
+        /* Botones */
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary { background-color: #74ACDF; color: white; }
+        .btn-primary:hover { background-color: #5D95C6; }
+        .btn-secondary { background-color: #F6B40E; color: #333; }
+        .btn-secondary:hover { background-color: #E0A30A; }
+
+        /* Resultados */
+        #resultado {
+            margin-top: 15px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #333;
+            text-align: center;
+            min-height: 25px;
+            line-height: 1.3;
+        }
+
+        .loading { color: #74ACDF !important; font-weight: 600; }
+        .error { color: #d9534f !important; font-size: 0.9rem; font-weight: 600;}
+    </style>
+</head>
+<body>
+
+    <div id="leyenda-patriota">
+        Las Malvinas son Argentinas
+    </div>
+
+    <div id="overlay">
+        <h2>Distancia a Malvinas</h2>
+        <p class="subtitle">Ingresa una dirección, usa tu ubicación o <b>toca cualquier punto en el mapa</b>.</p>
+        
+        <div class="input-group">
+            <input type="text" id="ubicacion" placeholder="Dirección, Ciudad, Provincia...">
+        </div>
+        
+        <button class="btn-primary" onclick="buscarPorDireccion()">Buscar Dirección</button>
+        <button class="btn-secondary" onclick="obtenerMiUbicacion()">📍 Usar mi ubicación actual</button>
+        
+        <div id="resultado"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        const latMalvinas = -51.69304763005476;
+        const lngMalvinas = -57.86211194591312;
+        const nombreDestino = "Islas Malvinas (Arg.)";
+
+        const map = L.map('map', { zoomControl: false }).setView([-38.416097, -63.616672], 4); 
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png', {
+            tms: true, 
+            maxZoom: 18,
+            attribution: '&copy; <a href="https://www.ign.gob.ar/">Instituto Geográfico Nacional (IGN)</a>'
+        }).addTo(map);
+        
+        const malvinasMarker = L.marker([latMalvinas, lngMalvinas]).addTo(map);
+        malvinasMarker.bindPopup(`<div style="font-family:'Montserrat'; text-align:center;"><b>${nombreDestino}</b><br>Territorio Nacional</div>`).openPopup();
+
+        let marcadorOrigen = null;
+        let lineaDistancia = null;
+
+        // NUEVO: Evento para calcular la distancia al hacer clic en cualquier parte del mapa
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            procesarPunto(lat, lng, "Punto seleccionado en el mapa");
+            document.getElementById('ubicacion').value = ""; // Limpia el buscador si había texto
+        });
+
+        async function buscarPorDireccion() {
+            const query = document.getElementById('ubicacion').value;
+            if (!query.trim()) { mostrarMensaje('Por favor, ingresa una dirección.', 'error'); return; }
+            mostrarMensaje('Buscando coordenadas...', 'loading');
+
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    const nombreFormateado = data[0].display_name.split(',').slice(0, 3).join(','); 
+                    procesarPunto(lat, lng, nombreFormateado);
+                } else {
+                    mostrarMensaje('Dirección no encontrada. Intenta agregar la ciudad o provincia.', 'error');
+                }
+            } catch (error) {
+                mostrarMensaje('Error de conexión. Intenta de nuevo.', 'error');
+            }
+        }
+
+        function obtenerMiUbicacion() {
+            if (!navigator.geolocation) { mostrarMensaje('Tu navegador no soporta geolocalización.', 'error'); return; }
+            mostrarMensaje('Obteniendo ubicación del dispositivo...', 'loading');
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    procesarPunto(position.coords.latitude, position.coords.longitude, "Tu ubicación actual");
+                    document.getElementById('ubicacion').value = ""; 
+                },
+                (error) => { mostrarMensaje('Permiso de ubicación denegado o no disponible.', 'error'); },
+                { enableHighAccuracy: true, timeout: 5000 } 
+            );
+        }
+
+        function procesarPunto(latOrigen, lngOrigen, nombreOrigen) {
+            if (marcadorOrigen) map.removeLayer(marcadorOrigen);
+            if (lineaDistancia) map.removeLayer(lineaDistancia);
+
+            marcadorOrigen = L.marker([latOrigen, lngOrigen]).addTo(map);
+            marcadorOrigen.bindPopup(`<div style="font-family:'Montserrat';"><b>Origen:</b><br>${nombreOrigen}</div>`).openPopup();
+
+            const latlngs = [[latOrigen, lngOrigen], [latMalvinas, lngMalvinas]];
+            lineaDistancia = L.polyline(latlngs, { color: '#74ACDF', weight: 4, dashArray: '8, 8', opacity: 0.8 }).addTo(map);
+
+            const punto1 = L.latLng(latOrigen, lngOrigen);
+            const punto2 = L.latLng(latMalvinas, lngMalvinas);
+            const distanciaKm = (punto1.distanceTo(punto2) / 1000).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            mostrarMensaje(`Usted está a ${distanciaKm} km de las Islas Malvinas`, 'success');
+
+            map.fitBounds(lineaDistancia.getBounds(), { padding: [50, 50] });
+        }
+
+        function mostrarMensaje(texto, tipo) {
+            const div = document.getElementById('resultado');
+            div.innerText = texto;
+            div.className = tipo === 'success' ? '' : tipo; 
+            if (tipo === 'success') { div.style.color = '#333'; }
+        }
+    </script>
+</body>
+</html>
