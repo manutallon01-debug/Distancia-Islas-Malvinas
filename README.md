@@ -1,4 +1,4 @@
-Calculadora de Distancia a las Islas Malvinas
+## Calculadora de Distancia a las Islas Malvinas
 
 Una herramienta web interactiva diseñada para calcular la distancia lineal en kilómetros desde cualquier punto del mapa hasta Puerto Argentino. Islas Malvinas (`-51.7963`, `-59.5236`), utilizando exclusivamente cartografía oficial de la República Argentina.
 
